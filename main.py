@@ -21,6 +21,7 @@ from services.workflow_store import (
     save_registry,
     save_workflow_file,
 )
+from services.question_log import log_bot_question, log_user_answer, log_user_opening
 from services.workflow_validate import validate_registry, validate_workflow
 
 app = FastAPI(title="Danışman AI")
@@ -246,20 +247,34 @@ def message(data: Message):
 
         save_conversation(data.conversation_id, conv)
         yeni_konusma = True
+        log_user_opening(data.conversation_id, intent, msg)
 
     workflow = load_workflow(conv["workflow"])
 
     if not yeni_konusma:
         last_q = get_next_question(workflow, conv["answers"])
         if last_q:
-            conv["answers"][last_q["field"]] = normalize_answer(
+            normalized = normalize_answer(
                 last_q["field"],
                 data.message,
+            )
+            conv["answers"][last_q["field"]] = normalized
+            log_user_answer(
+                data.conversation_id,
+                conv["workflow"],
+                last_q["field"],
+                normalized,
             )
 
     next_q = get_next_question(workflow, conv["answers"])
 
     if next_q:
+        log_bot_question(
+            data.conversation_id,
+            conv["workflow"],
+            str(next_q.get("field") or ""),
+            str(next_q.get("question") or ""),
+        )
         return {
             "type": "question",
             "question": next_q["question"],

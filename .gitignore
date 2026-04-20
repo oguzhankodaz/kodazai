@@ -1,4 +1,52 @@
+# --- Gizli / yerel yapılandırma (asla commit edilmez) ---
 .env
+.env.local
+.env.*.local
+
+# --- Python ---
 venv/
+.venv/
 __pycache__/
-*.pyc
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# --- Test / kalite ---
+.pytest_cache/
+.coverage
+htmlcov/
+.mypy_cache/
+.ruff_cache/
+
+# --- IDE / editör ---
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# --- İşletim sistemi ---
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# --- Günlük / geçici ---
+*.log
+*.tmp
+*.temp

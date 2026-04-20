@@ -26,6 +26,7 @@ SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 
 def init_db() -> None:
+    import db.models  # noqa: F401 — QuestionLog vb. modeller metadata'ya kayılsın
     from db.models import Base
 
     Base.metadata.create_all(bind=engine)
