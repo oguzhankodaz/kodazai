@@ -1,0 +1,18 @@
+# Yerel geliştirme: PostgreSQL
+# Başlat: docker compose up -d
+# Bağlantı: postgresql://danisman:danisman@localhost:5432/danisman
+
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: danisman
+      POSTGRES_PASSWORD: danisman
+      POSTGRES_DB: danisman
+    ports:
+      - "5432:5432"
+    volumes:
+      - danisman_pgdata:/var/lib/postgresql/data
+
+volumes:
+  danisman_pgdata:

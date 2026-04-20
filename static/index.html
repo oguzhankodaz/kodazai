@@ -1,0 +1,570 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>KodazAI</title>
+  <style>
+    :root {
+      --bg: #0f1419;
+      --surface: #1a2332;
+      --border: #2d3a4f;
+      --text: #e8edf4;
+      --muted: #8b9cb3;
+      --accent: #3d8bfd;
+      --accent-dim: #2563c9;
+      --ok: #34d399;
+      --warn: #fbbf24;
+      --assistant-row: rgba(255, 255, 255, 0.03);
+      --user-bubble: #2b3f5c;
+      --composer-bg: #1a2332;
+    }
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0;
+      height: 100%;
+      font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.55;
+    }
+    .app {
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      height: 100dvh;
+      max-width: 100%;
+    }
+    .topbar {
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.75rem;
+      padding: 0.65rem 1rem;
+      border-bottom: 1px solid var(--border);
+      background: var(--bg);
+    }
+    .topbar h1 {
+      margin: 0;
+      font-size: 1.05rem;
+      font-weight: 600;
+      letter-spacing: -0.02em;
+    }
+    .topbar-meta {
+      font-size: 0.72rem;
+      color: var(--muted);
+      font-family: ui-monospace, monospace;
+      max-width: 40%;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .topbar a {
+      color: var(--muted);
+      font-size: 0.85rem;
+      text-decoration: none;
+    }
+    .topbar a:hover { color: var(--accent); }
+
+    .chat-scroll {
+      flex: 1;
+      min-height: 0;
+      overflow-y: auto;
+      overflow-x: hidden;
+    }
+    .chat-inner {
+      max-width: 48rem;
+      margin: 0 auto;
+      padding: 1rem 0 2rem;
+    }
+    .empty-hint {
+      max-width: 48rem;
+      margin: 0 auto;
+      padding: 2rem 1.25rem;
+      color: var(--muted);
+      font-size: 0.95rem;
+      text-align: center;
+    }
+
+    .msg-row {
+      display: flex;
+      padding: 0.85rem 1rem;
+      gap: 0.75rem;
+    }
+    .msg-row.assistant {
+      background: var(--assistant-row);
+      justify-content: flex-start;
+    }
+    .msg-row.user {
+      justify-content: flex-end;
+      background: transparent;
+    }
+    .msg-bubble {
+      max-width: min(100%, 38rem);
+      font-size: 0.95rem;
+    }
+    .msg-row.user .msg-bubble {
+      background: var(--user-bubble);
+      color: #fff;
+      padding: 0.65rem 1rem;
+      border-radius: 1.15rem;
+      border-bottom-right-radius: 0.35rem;
+    }
+    .msg-row.assistant .msg-bubble {
+      color: var(--text);
+      padding: 0.15rem 0;
+    }
+    .msg-row.assistant .msg-bubble strong:first-child {
+      display: block;
+      font-size: 0.7rem;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      margin-bottom: 0.4rem;
+      font-weight: 600;
+    }
+    .msg-row.assistant.error .msg-bubble {
+      color: #fecaca;
+    }
+    .msg-row.assistant.result .msg-bubble ul {
+      margin: 0.5rem 0 0;
+      padding-left: 1.2rem;
+    }
+    .msg-row.assistant.result .msg-bubble .warn {
+      margin-top: 0.75rem;
+      padding: 0.55rem 0.65rem;
+      background: rgba(251, 191, 36, 0.1);
+      border-radius: 8px;
+      color: var(--warn);
+      font-size: 0.88rem;
+    }
+    .msg-row.assistant.result .msg-bubble .result-title {
+      display: block;
+      font-size: 1.02rem;
+      font-weight: 600;
+      color: var(--ok);
+      margin: 0.35rem 0 0.25rem;
+    }
+
+    .composer-wrap {
+      flex-shrink: 0;
+      padding: 0.65rem 0 1rem;
+      background: linear-gradient(to top, var(--bg) 70%, transparent);
+      border-top: 1px solid var(--border);
+    }
+    .composer {
+      max-width: 48rem;
+      margin: 0 auto;
+      padding: 0 1rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+    .composer-box {
+      display: flex;
+      align-items: flex-end;
+      gap: 0.5rem;
+      background: var(--composer-bg);
+      border: 1px solid var(--border);
+      border-radius: 1.1rem;
+      padding: 0.45rem 0.5rem 0.45rem 0.85rem;
+      box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.2);
+    }
+    .composer-box:focus-within {
+      border-color: #4a5f7a;
+      box-shadow: 0 0 0 1px rgba(61, 139, 253, 0.25);
+    }
+    #msg {
+      flex: 1;
+      min-height: 44px;
+      max-height: 160px;
+      resize: none;
+      border: none;
+      background: transparent;
+      color: var(--text);
+      font-size: 0.95rem;
+      font-family: inherit;
+      line-height: 1.45;
+      padding: 0.45rem 0;
+    }
+    #msg:focus {
+      outline: none;
+    }
+    #send {
+      flex-shrink: 0;
+      width: 38px;
+      height: 38px;
+      border-radius: 0.65rem;
+      border: none;
+      background: var(--accent);
+      color: #fff;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.1rem;
+      line-height: 1;
+    }
+    #send:hover:not(:disabled) { filter: brightness(1.08); }
+    #send:disabled { opacity: 0.4; cursor: not-allowed; }
+    .composer-tools {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 0.35rem;
+      font-size: 0.78rem;
+      color: var(--muted);
+      padding: 0 0.15rem;
+    }
+    .composer-tools button.ghost {
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--muted);
+      padding: 0.35rem 0.65rem;
+      border-radius: 0.5rem;
+      cursor: pointer;
+      font-size: 0.78rem;
+    }
+    .composer-tools button.ghost:hover {
+      color: var(--text);
+      border-color: var(--muted);
+    }
+
+    #composer-finished-row {
+      display: flex;
+      flex-direction: column;
+      align-items: stretch;
+      gap: 0.75rem;
+      padding: 0.35rem 0 0.15rem;
+    }
+    #composer-finished-row[hidden] {
+      display: none !important;
+    }
+    .composer-finished-msg {
+      margin: 0;
+      font-size: 0.88rem;
+      color: var(--muted);
+      text-align: center;
+    }
+    .btn-new-session {
+      width: 100%;
+      max-width: 48rem;
+      margin: 0 auto;
+      padding: 0.65rem 1rem;
+      border-radius: 0.75rem;
+      border: none;
+      background: var(--accent);
+      color: #fff;
+      font-size: 0.95rem;
+      font-weight: 600;
+      cursor: pointer;
+      font-family: inherit;
+    }
+    .btn-new-session:hover {
+      filter: brightness(1.08);
+    }
+
+    .opts {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.45rem;
+      margin-top: 0.65rem;
+    }
+    .opts button {
+      font-size: 0.88rem;
+      padding: 0.45rem 0.75rem;
+      border-radius: 0.65rem;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--text);
+      cursor: pointer;
+    }
+    .opts button:hover {
+      border-color: var(--accent);
+      background: #243044;
+    }
+    .intent-opts {
+      display: flex;
+      flex-direction: column;
+      gap: 0.45rem;
+      margin-top: 0.65rem;
+    }
+    .intent-opts button {
+      text-align: left;
+      width: 100%;
+      padding: 0.55rem 0.75rem;
+      border-radius: 0.65rem;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--text);
+      cursor: pointer;
+    }
+    .intent-opts button:hover { border-color: var(--accent); }
+    .intent-opts button .btn-sub {
+      display: block;
+      font-size: 0.82rem;
+      font-weight: 400;
+      color: var(--muted);
+      margin-top: 0.2rem;
+    }
+    /* Cevap verildikten sonra eski soru/konu şıkları kaldırılır (.opts boşaltılır) */
+    .opts.opts-locked:empty {
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header class="topbar">
+      <h1>Kodaz AI</h1>
+      <span class="topbar-meta" id="cid" title=""></span>
+      <a href="/admin">Akışlar</a>
+    </header>
+
+    <div class="chat-scroll" id="chat-scroll">
+      <div class="chat-inner" id="log"></div>
+    </div>
+
+    <div class="composer-wrap">
+      <div class="composer">
+        <div id="composer-input-row">
+          <div class="composer-box">
+            <textarea id="msg" rows="1" placeholder="Mesajınızı yazın…" autocomplete="off"></textarea>
+            <button type="button" id="send" title="Gönder" aria-label="Gönder">↑</button>
+          </div>
+          <div class="composer-tools">
+            <span>Enter ile gönder · Shift+Enter satır</span>
+            <button type="button" class="ghost" id="newChat">Yeni görüşme</button>
+          </div>
+        </div>
+        <div id="composer-finished-row" hidden>
+          <p class="composer-finished-msg">Sonuç alındı. Yeni bir konuşma için aşağıdaki düğmeyi kullanın.</p>
+          <button type="button" class="btn-new-session" id="newChatPrimary">Yeni görüşme</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const API = "";
+
+    function conversationId() {
+      let id = sessionStorage.getItem("danisman_cid");
+      if (!id) {
+        id = "web-" + Math.random().toString(36).slice(2, 12);
+        sessionStorage.setItem("danisman_cid", id);
+      }
+      return id;
+    }
+
+    function showCid() {
+      const el = document.getElementById("cid");
+      const id = conversationId();
+      el.textContent = id;
+      el.title = "Oturum: " + id;
+    }
+
+    function escapeHtml(s) {
+      return String(s)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;");
+    }
+
+    function appendMessage(html, role, variant) {
+      const log = document.getElementById("log");
+      const row = document.createElement("div");
+      row.className = "msg-row " + role + (variant ? " " + variant : "");
+      const bubble = document.createElement("div");
+      bubble.className = "msg-bubble";
+      bubble.innerHTML = html;
+      row.appendChild(bubble);
+      log.appendChild(row);
+      const sc = document.getElementById("chat-scroll");
+      sc.scrollTop = sc.scrollHeight;
+      return row;
+    }
+
+    function ensureEmptyHintGone() {
+      const hint = document.getElementById("chat-empty-hint");
+      if (hint) hint.remove();
+    }
+
+    /** Soru veya konu seçimi şıkları — yeni cevap gönderilince kaldırılır (tekrar tıklanmasın). */
+    function lockInAssistantOptions() {
+      document.querySelectorAll("#log .msg-row.assistant .opts").forEach((opts) => {
+        if (opts.classList.contains("opts-locked")) return;
+        opts.classList.add("opts-locked");
+        opts.innerHTML = "";
+      });
+    }
+
+    function setBusy(b) {
+      document.getElementById("send").disabled = b;
+      document.getElementById("msg").disabled = b;
+    }
+
+    /** Sonuç gösterildikten sonra metin kutusu kapanır; yeni görüşme öne çıkar. */
+    function setComposerResultMode(finished) {
+      const inputRow = document.getElementById("composer-input-row");
+      const finishedRow = document.getElementById("composer-finished-row");
+      if (!inputRow || !finishedRow) return;
+      inputRow.hidden = !!finished;
+      finishedRow.hidden = !finished;
+    }
+
+    function startNewChat() {
+      sessionStorage.removeItem("danisman_cid");
+      document.getElementById("log").innerHTML = "";
+      showCid();
+      injectEmptyHint();
+      setComposerResultMode(false);
+      document.getElementById("msg").value = "";
+      autoResizeTextarea();
+    }
+
+    function autoResizeTextarea() {
+      const ta = document.getElementById("msg");
+      ta.style.height = "auto";
+      ta.style.height = Math.min(ta.scrollHeight, 160) + "px";
+    }
+
+    async function sendPayload(rawMessage, displayText) {
+      const trimmed = (rawMessage || "").trim();
+      if (!trimmed) return;
+
+      lockInAssistantOptions();
+      ensureEmptyHintGone();
+      const shown = displayText != null ? displayText : trimmed;
+      appendMessage(escapeHtml(shown), "user");
+      document.getElementById("msg").value = "";
+      autoResizeTextarea();
+      setBusy(true);
+
+      try {
+        const res = await fetch(API + "/message", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            conversation_id: conversationId(),
+            message: trimmed,
+          }),
+        });
+        const data = await res.json();
+
+        if (data.message && !data.type) {
+          appendMessage(
+            "<strong>Sistem</strong>" + escapeHtml(data.message),
+            "assistant",
+            "error"
+          );
+          return;
+        }
+
+        if (data.type === "choose_intent") {
+          const prompt = escapeHtml(data.prompt || "Seçim yapın:");
+          const rows = (data.options || [])
+            .map((o) => {
+              const code = escapeHtml(o.code);
+              const label = escapeHtml(o.label || o.code);
+              const desc = o.description ? `<span class="btn-sub">${escapeHtml(o.description)}</span>` : "";
+              return `<button type="button" data-code="${code}" data-label="${label}">${label}${desc}</button>`;
+            })
+            .join("");
+          const row = appendMessage(
+            `<strong>Konu seçimi</strong>${prompt}<div class="opts intent-opts">${rows}</div>`,
+            "assistant"
+          );
+          row.querySelectorAll(".intent-opts button").forEach((btn) => {
+            btn.addEventListener("click", () => {
+              const code = btn.getAttribute("data-code");
+              const label = btn.getAttribute("data-label");
+              sendPayload("__workflow__:" + code, label);
+            });
+          });
+          return;
+        }
+
+        if (data.type === "question") {
+          const opts = (data.options || [])
+            .map(
+              (o) =>
+                `<button type="button" data-opt="${String(o).replace(/"/g, "&quot;")}">${String(o)}</button>`
+            )
+            .join("");
+          const row = appendMessage(
+            `<strong>Soru</strong>${escapeHtml(data.question)}<div class="opts">${opts}</div>`,
+            "assistant"
+          );
+          row.querySelectorAll(".opts button").forEach((btn) => {
+            btn.addEventListener("click", () => sendMessage(btn.getAttribute("data-opt")));
+          });
+          return;
+        }
+
+        if (data.type === "result" && data.result) {
+          const r = data.result;
+          const steps = (r.steps || [])
+            .map((s) => "<li>" + escapeHtml(s) + "</li>")
+            .join("");
+          const warn = r.warning
+            ? `<div class="warn">${escapeHtml(r.warning)}</div>`
+            : "";
+          appendMessage(
+            `<strong>Sonuç</strong><span class="result-title">${escapeHtml(r.title || "")}</span><ul>${steps}</ul>${warn}`,
+            "assistant",
+            "result"
+          );
+          setComposerResultMode(true);
+          return;
+        }
+
+        appendMessage("<strong>Sistem</strong>Beklenmeyen yanıt.", "assistant", "error");
+      } catch (e) {
+        appendMessage(
+          "<strong>Hata</strong>Bağlantı kurulamadı. Sunucunun çalıştığından emin olun.",
+          "assistant",
+          "error"
+        );
+      } finally {
+        setBusy(false);
+      }
+    }
+
+    function sendMessage(text) {
+      return sendPayload((text || "").trim(), null);
+    }
+
+    document.getElementById("send").addEventListener("click", () => {
+      sendMessage(document.getElementById("msg").value);
+    });
+    document.getElementById("msg").addEventListener("keydown", (e) => {
+      if (e.key === "Enter" && !e.shiftKey) {
+        e.preventDefault();
+        sendMessage(document.getElementById("msg").value);
+      }
+    });
+    document.getElementById("msg").addEventListener("input", autoResizeTextarea);
+
+    document.getElementById("newChat").addEventListener("click", () => startNewChat());
+    document.getElementById("newChatPrimary").addEventListener("click", () => startNewChat());
+
+    function injectEmptyHint() {
+      const log = document.getElementById("log");
+      if (log.children.length) return;
+      const p = document.createElement("p");
+      p.id = "chat-empty-hint";
+      p.className = "empty-hint";
+      p.innerHTML =
+        "Ne yapmak istediğinizi yazın; konu listesi veya sorular gelir, sonunda özet görürsünüz.<br /><span style=\"opacity:0.85\">Örnek: <em>ters kayıt</em>, <em>fatura</em>, <em>araç tanımlama</em></span>";
+      log.appendChild(p);
+    }
+
+    showCid();
+    injectEmptyHint();
+  </script>
+</body>
+</html>

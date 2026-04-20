@@ -1,0 +1,718 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Akış yönetimi — Danışman AI</title>
+  <style>
+    :root {
+      --bg: #0c0f14;
+      --surface: #161d27;
+      --border: #2a3544;
+      --text: #e6edf3;
+      --muted: #8b9cb0;
+      --accent: #3d8bfd;
+      --danger: #f85149;
+      --ok: #3fb950;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: "Segoe UI", system-ui, sans-serif; background: var(--bg); color: var(--text); line-height: 1.45; }
+    a { color: var(--accent); }
+    .top {
+      display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between;
+      gap: 0.75rem; padding: 1rem 1.25rem; border-bottom: 1px solid var(--border); background: var(--surface);
+    }
+    .top h1 { margin: 0; font-size: 1.15rem; font-weight: 600; }
+    .tabs { display: flex; gap: 0.35rem; }
+    .tabs button {
+      padding: 0.45rem 0.85rem; border-radius: 8px; border: 1px solid var(--border);
+      background: transparent; color: var(--muted); cursor: pointer; font-size: 0.9rem;
+    }
+    .tabs button.active { background: #243044; color: var(--text); border-color: #3d4f66; }
+    .wrap { max-width: 960px; margin: 0 auto; padding: 1rem 1rem 3rem; }
+    .panel {
+      background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+      padding: 1rem 1.1rem; margin-bottom: 1rem;
+    }
+    .hint { font-size: 0.85rem; color: var(--muted); margin: 0 0 0.75rem; }
+    label { display: block; font-size: 0.78rem; color: var(--muted); margin-bottom: 0.25rem; text-transform: uppercase; letter-spacing: 0.03em; }
+    input[type="text"], textarea, select {
+      width: 100%; padding: 0.5rem 0.6rem; border-radius: 8px; border: 1px solid var(--border);
+      background: var(--bg); color: var(--text); font-size: 0.95rem;
+    }
+    textarea { min-height: 88px; font-family: ui-monospace, monospace; font-size: 0.85rem; }
+    button.primary { background: var(--accent); color: #fff; border: none; padding: 0.5rem 1rem; border-radius: 8px; cursor: pointer; font-weight: 500; }
+    button.primary:disabled { opacity: 0.45; cursor: not-allowed; }
+    button.ghost { background: transparent; border: 1px solid var(--border); color: var(--muted); padding: 0.45rem 0.75rem; border-radius: 8px; cursor: pointer; }
+    button.danger { border-color: var(--danger); color: var(--danger); }
+    .row { display: flex; flex-wrap: wrap; gap: 0.65rem; align-items: flex-end; margin-bottom: 0.75rem; }
+    .row > div { flex: 1; min-width: 140px; }
+    .q-block, .rule-block {
+      border: 1px solid var(--border); border-radius: 10px; padding: 0.75rem; margin-bottom: 0.65rem; background: rgba(0,0,0,.15);
+    }
+    .rule-block h4 { margin: 0 0 0.5rem; font-size: 0.85rem; color: var(--muted); }
+    .if-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 0.5rem; margin-bottom: 0.5rem; }
+    .badge { font-size: 0.72rem; padding: 0.15rem 0.4rem; border-radius: 4px; background: #243044; color: var(--muted); }
+    .flash { padding: 0.6rem 0.75rem; border-radius: 8px; margin-bottom: 0.75rem; font-size: 0.9rem; }
+    .flash.ok { background: rgba(63, 185, 80, 0.12); border: 1px solid #238636; color: #7ee787; }
+    .flash.err { background: rgba(248, 81, 73, 0.1); border: 1px solid var(--danger); color: #ffa198; }
+    .hidden { display: none !important; }
+    #view-registry table { width: 100%; border-collapse: collapse; font-size: 0.88rem; }
+    #view-registry th, #view-registry td { border: 1px solid var(--border); padding: 0.4rem 0.5rem; text-align: left; vertical-align: top; }
+    #view-registry input { font-size: 0.85rem; }
+    #view-registry .reg-table-scroll {
+      max-height: min(26rem, 58vh);
+      overflow: auto;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+    }
+    #view-registry .reg-table-scroll table { margin: 0; border: none; }
+    #view-registry .reg-table-scroll thead th {
+      position: sticky;
+      top: 0;
+      z-index: 1;
+      background: var(--surface);
+      box-shadow: 0 1px 0 var(--border);
+    }
+    .reg-docs { margin-top: 1rem; margin-bottom: 0; }
+    .reg-docs h3 { margin: 0 0 0.65rem; font-size: 1rem; }
+    .field-docs { margin: 0; padding: 0; }
+    .field-docs dt {
+      font-weight: 600;
+      font-size: 0.88rem;
+      color: var(--text);
+      margin-top: 0.75rem;
+    }
+    .field-docs dt:first-child { margin-top: 0; }
+    .field-docs dd {
+      margin: 0.3rem 0 0 0;
+      padding-left: 0.5rem;
+      font-size: 0.85rem;
+      color: var(--muted);
+      line-height: 1.55;
+      border-left: 2px solid var(--border);
+    }
+    .field-docs code { font-size: 0.82rem; background: rgba(0,0,0,.25); padding: 0.1rem 0.35rem; border-radius: 4px; }
+  </style>
+</head>
+<body>
+  <header class="top">
+    <h1>Akış yönetimi</h1>
+    <nav class="tabs">
+      <button type="button" id="tab-wf" class="active">Süreç (soru &amp; kural)</button>
+      <button type="button" id="tab-reg">Intent kaydı</button>
+    </nav>
+    <a href="/">← Sohbet ekranı</a>
+  </header>
+
+  <div class="wrap">
+    <div id="flash"></div>
+
+    <section id="view-wf">
+      <p class="hint">
+        Sorular sırayla sorulur. Bir soruyu yalnızca önceki cevaba bağlamak için JSON’da <code>show_if</code> kullanın
+        (ör. ikinci soru sadece birinci soruya «hayır» denince): Ham JSON veya dosyayı düzenleyin.
+        Kurallarda her alan zorunlu değil; kuralda kullanmayacağınız alanları «Bu alan bu kuralda yok» bırakın.
+        Yeni akışta intent kaydı <strong>otomatik</strong> oluşur (<code>code</code>); <strong>Intent kaydı</strong> sekmesinde anahtar kelimeleri ve açıklamayı tamamlayın.
+      </p>
+
+      <div class="panel">
+        <div class="row">
+          <div>
+            <label>Akış dosyası</label>
+            <select id="wf-select"></select>
+          </div>
+          <div style="flex:2; display:flex; gap:0.5rem; flex-wrap:wrap; align-items:flex-end;">
+            <button type="button" class="primary" id="wf-load">Yükle</button>
+            <button type="button" class="ghost" id="wf-new">Yeni akış</button>
+            <button type="button" class="ghost danger" id="wf-del">Sil</button>
+            <button type="button" class="primary" id="wf-save">Kaydet</button>
+          </div>
+        </div>
+        <div class="row">
+          <div>
+            <label>Kod (dosya adı)</label>
+            <input type="text" id="wf-code" readonly />
+          </div>
+          <div>
+            <label>Görünen ad</label>
+            <input type="text" id="wf-name" />
+          </div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h3 style="margin:0 0 0.5rem; font-size:1rem;">Sorular</h3>
+        <div id="questions-wrap"></div>
+        <button type="button" class="ghost" id="q-add">+ Soru ekle</button>
+      </div>
+
+      <div class="panel">
+        <h3 style="margin:0 0 0.5rem; font-size:1rem;">Kurallar (sonuçlar)</h3>
+        <div id="rules-wrap"></div>
+        <button type="button" class="ghost" id="rule-add">+ Kural ekle</button>
+      </div>
+
+      <div class="panel">
+        <h3 style="margin:0 0 0.5rem; font-size:1rem;">Varsayılan sonuç</h3>
+        <p class="hint" style="margin-top:0;">Hiçbir kural eşleşmezse gösterilir.</p>
+        <div class="row">
+          <div style="flex:2">
+            <label>Başlık</label>
+            <input type="text" id="def-title" />
+          </div>
+        </div>
+        <label>Adımlar (her satır bir madde)</label>
+        <textarea id="def-steps"></textarea>
+        <label>Uyarı (isteğe bağlı)</label>
+        <input type="text" id="def-warn" />
+      </div>
+
+      <div class="panel">
+        <h3 style="margin:0 0 0.5rem; font-size:1rem;">Ham JSON</h3>
+        <textarea id="raw-json" style="min-height:220px;"></textarea>
+        <div style="margin-top:0.5rem; display:flex; gap:0.5rem; flex-wrap:wrap;">
+          <button type="button" class="ghost" id="raw-apply">Forma uygula</button>
+          <button type="button" class="ghost" id="raw-dl">İndir (.json)</button>
+        </div>
+      </div>
+    </section>
+
+    <section id="view-registry" class="hidden">
+      <div class="panel">
+        <div style="display:flex; gap:0.5rem; flex-wrap:wrap; margin-bottom:0.75rem;">
+          <button type="button" class="primary" id="reg-save">Registry kaydet</button>
+          <button type="button" class="ghost" id="reg-add">+ Satır ekle</button>
+        </div>
+        <p class="hint" style="margin-top:0;">
+          Yeni süreç oluşturduğunuzda <code>code</code> ve varsayılan <code>label</code> buraya otomatik eklenir; anahtar kelimeleri ve strict kurallarını siz tamamlayın.
+        </p>
+        <div class="reg-table-scroll">
+          <table>
+            <thead>
+              <tr>
+                <th>code</th>
+                <th>label</th>
+                <th>description</th>
+                <th>keywords (virgülle)</th>
+                <th>strict: hepsi</th>
+                <th>strict: biri</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="reg-body"></tbody>
+          </table>
+        </div>
+      </div>
+      <div class="panel reg-docs">
+        <h3>Intent kaydı — alanların ne işe yaradığı</h3>
+        <p class="hint" style="margin-top:0;">
+          Bu tablo, sohbet ekranında kullanıcı <strong>ilk mesajını</strong> yazdığında hangi akışın aday olacağını ve nasıl seçileceğini tanımlar (veritabanındaki <code>workflows</code> kaydı). Sorular ve kurallar akışın kendisindedir; burası yalnızca <em>bulma ve eşleştirme</em> içindir.
+        </p>
+        <dl class="field-docs">
+          <dt><code>code</code></dt>
+          <dd>
+            Akış dosyasının adıyla aynı olmalıdır (ör. <code>irsaliye_ters_kaydi</code> → dosya <code>irsaliye_ters_kaydi.json</code>).
+            Küçük harf, rakam ve alt çizgi kullanın. Sohbette bir konu seçildiğinde bu kod hangi dosyanın açılacağını belirler.
+          </dd>
+          <dt><code>label</code></dt>
+          <dd>
+            Kullanıcıya gösterilen kısa başlık. Konu listesinde ve seçim butonlarında bu metin görünür; net ve ayırt edici yazın.
+          </dd>
+          <dt><code>description</code></dt>
+          <dd>
+            İsteğe bağlı açıklama. Konu listesinde başlığın altında küçük metin olarak gösterilir; akışın ne işe yaradığını bir cümleyle özetleyin.
+          </dd>
+          <dt><code>keywords</code> (virgülle)</dt>
+          <dd>
+            Arama ve skor için kullanılan kelimeler. Sohbette <strong>konu araması</strong> ve <code>classify_intent</code> bu listeyi (ve akıştaki soru metinlerini) dikkate alır.
+            Türkçe karakter kullanabilirsiniz; sistem eşleştirirken metni normalize eder. İlgili tüm eş anlamlıları eklemek listeye çıkma şansını artırır.
+          </dd>
+          <dt><code>strict: hepsi</code> (must_include_all)</dt>
+          <dd>
+            Kullanıcının mesajında <strong>aynı anda</strong> geçmesi gereken kelimeler (virgülle). Hepsi yoksa bu satırdaki <strong>strict kuralı</strong> tutmaz.
+            Örnek: sadece <code>irsaliye</code> yazmak, “irsaliye şart” derseniz buraya <code>irsaliye</code> koyarsınız.
+          </dd>
+          <dt><code>strict: biri</code> (include_one_of)</dt>
+          <dd>
+            Yukarıdaki “hepsi” koşulu sağlandıktan sonra (veya “hepsi” boşsa), mesajda <strong>en az birinin</strong> geçmesi gereken kelimeler.
+            Örnek: irsaliye + (ters veya iptal veya …) gibi bir mantık kurmak için “hepsi”ye <code>irsaliye</code>, “biri”ye <code>ters, iptal, geri</code> yazılabilir.
+            Hem “hepsi” hem “biri” doluysa önce hepsi, sonra biri kontrol edilir.
+          </dd>
+        </dl>
+        <p class="hint" style="margin-bottom:0;">
+          <strong>Not:</strong> Strict alanlarını boş bırakırsanız yalnızca <code>keywords</code> ile skor / <code>classify_intent</code> devreye girer.
+          Kaydı kaydettikten sonra sohbet sunucusunun dosyayı okuduğundan emin olun (<code>Registry kaydet</code>).
+        </p>
+      </div>
+    </section>
+  </div>
+
+  <dialog id="dlg-new" style="border:none; border-radius:12px; padding:1.25rem; max-width:420px; background:var(--surface); color:var(--text);">
+    <h3 style="margin:0 0 0.75rem;">Yeni akış</h3>
+    <label>Kod (ör. fatura_iptal)</label>
+    <input type="text" id="new-code" placeholder="fatura_iptal" />
+    <label>Görünen ad</label>
+    <input type="text" id="new-name" value="Yeni süreç" />
+    <label>Mevcut akıştan kopyala (isteğe bağlı)</label>
+    <select id="new-clone"><option value="">— Boş şablon —</option></select>
+    <div style="margin-top:1rem; display:flex; gap:0.5rem; justify-content:flex-end;">
+      <button type="button" class="ghost" id="new-cancel">Vazgeç</button>
+      <button type="button" class="primary" id="new-ok">Oluştur</button>
+    </div>
+  </dialog>
+
+  <script>
+    const API = "";
+
+    function flash(msg, ok) {
+      const el = document.getElementById("flash");
+      el.className = "flash " + (ok ? "ok" : "err");
+      el.textContent = msg;
+      el.style.display = "block";
+      clearTimeout(flash._t);
+      flash._t = setTimeout(() => { el.style.display = "none"; }, 5000);
+    }
+
+    function esc(s) {
+      const d = document.createElement("div");
+      d.textContent = s;
+      return d.innerHTML;
+    }
+
+    let currentWorkflow = null;
+
+    function fieldNames() {
+      if (!currentWorkflow || !currentWorkflow.questions) return [];
+      return currentWorkflow.questions.map((q) => q.field);
+    }
+
+    function renderQuestions() {
+      const wrap = document.getElementById("questions-wrap");
+      wrap.innerHTML = "";
+      (currentWorkflow.questions || []).forEach((q, idx) => {
+        const div = document.createElement("div");
+        div.className = "q-block";
+        div.innerHTML = `
+          <div class="row">
+            <div><label>Alan adı (field)</label><input type="text" class="q-field" data-i="${idx}" /></div>
+            <div style="flex:2"><label>Soru metni</label><input type="text" class="q-text" data-i="${idx}" /></div>
+          </div>
+          <label>Seçenekler (virgül veya satır ile; kayıtta kullanılan değerler)</label>
+          <textarea class="q-opt" data-i="${idx}"></textarea>
+          <button type="button" class="ghost danger q-rm" data-i="${idx}">Bu soruyu sil</button>
+        `;
+        div.querySelector(".q-field").value = q.field || "";
+        div.querySelector(".q-text").value = q.question || "";
+        div.querySelector(".q-opt").value = (q.options || []).join(", ");
+        wrap.appendChild(div);
+      });
+      wrap.querySelectorAll(".q-field, .q-text, .q-opt").forEach((el) => {
+        el.addEventListener("input", () => syncQuestionsFromDom());
+      });
+      wrap.querySelectorAll(".q-rm").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          const i = +btn.getAttribute("data-i");
+          currentWorkflow.questions.splice(i, 1);
+          renderAll();
+        });
+      });
+    }
+
+    function parseOpts(str) {
+      return str.split(/[,\n]/).map((s) => s.trim()).filter(Boolean);
+    }
+
+    function syncQuestionsFromDom() {
+      if (!currentWorkflow) return;
+      document.querySelectorAll(".q-field").forEach((inp) => {
+        const i = +inp.getAttribute("data-i");
+        if (!currentWorkflow.questions[i]) return;
+        currentWorkflow.questions[i].field = inp.value.trim();
+      });
+      document.querySelectorAll(".q-text").forEach((inp) => {
+        const i = +inp.getAttribute("data-i");
+        if (!currentWorkflow.questions[i]) return;
+        currentWorkflow.questions[i].question = inp.value;
+      });
+      document.querySelectorAll(".q-opt").forEach((inp) => {
+        const i = +inp.getAttribute("data-i");
+        if (!currentWorkflow.questions[i]) return;
+        currentWorkflow.questions[i].options = parseOpts(inp.value);
+        currentWorkflow.questions[i].type = "single_choice";
+      });
+    }
+
+    function renderRules() {
+      const wrap = document.getElementById("rules-wrap");
+      wrap.innerHTML = "";
+      const fields = fieldNames();
+      (currentWorkflow.rules || []).forEach((rule, ridx) => {
+        const div = document.createElement("div");
+        div.className = "rule-block";
+        const ifPart = rule.if || {};
+        let ifHtml = '<div class="if-grid">';
+        const OMIT = "__omit__";
+        fields.forEach((fn) => {
+          const q = currentWorkflow.questions.find((x) => x.field === fn);
+          const opts = (q && q.options) || [];
+          const curRaw = ifPart[fn] != null ? String(ifPart[fn]) : "";
+          const cur = curRaw === "" ? OMIT : curRaw;
+          let optsHtml = `<option value="${OMIT}" ${cur === OMIT ? "selected" : ""}>— Bu alan bu kuralda yok —</option>`;
+          optsHtml += opts.map((o) => `<option value="${esc(o)}" ${o === cur ? "selected" : ""}>${esc(o)}</option>`).join("");
+          ifHtml += `<div><label>${esc(fn)}</label><select class="rule-if" data-r="${ridx}" data-f="${esc(fn)}">${optsHtml}</select></div>`;
+        });
+        ifHtml += "</div>";
+        const res = rule.result || {};
+        const steps = (res.steps || []).join("\n");
+        div.innerHTML = `
+          <h4>Kural ${ridx + 1} <span class="badge">if → result</span></h4>
+          ${fields.length ? ifHtml : "<p class='hint'>Önce soru ekleyin.</p>"}
+          <label>Sonuç başlığı</label>
+          <input type="text" class="rule-title" data-r="${ridx}" />
+          <label>Adımlar (satır satır)</label>
+          <textarea class="rule-steps" data-r="${ridx}"></textarea>
+          <label>Uyarı</label>
+          <input type="text" class="rule-warn" data-r="${ridx}" />
+          <button type="button" class="ghost danger rule-rm" data-r="${ridx}">Bu kuralı sil</button>
+        `;
+        div.querySelector(".rule-title").value = res.title || "";
+        div.querySelector(".rule-steps").value = steps;
+        div.querySelector(".rule-warn").value = res.warning || "";
+        wrap.appendChild(div);
+      });
+      wrap.querySelectorAll(".rule-if").forEach((sel) => {
+        sel.addEventListener("change", syncRulesFromDom);
+      });
+      wrap.querySelectorAll(".rule-title, .rule-steps, .rule-warn").forEach((el) => {
+        el.addEventListener("input", syncRulesFromDom);
+      });
+      wrap.querySelectorAll(".rule-rm").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          const r = +btn.getAttribute("data-r");
+          currentWorkflow.rules.splice(r, 1);
+          renderAll();
+        });
+      });
+    }
+
+    function syncRulesFromDom() {
+      if (!currentWorkflow) return;
+      document.querySelectorAll(".rule-block").forEach((block, ridx) => {
+        const rule = currentWorkflow.rules[ridx];
+        if (!rule) return;
+        rule.if = rule.if || {};
+        const OMIT = "__omit__";
+        rule.if = {};
+        block.querySelectorAll(".rule-if").forEach((sel) => {
+          const f = sel.getAttribute("data-f");
+          const v = sel.value;
+          if (v && v !== OMIT) rule.if[f] = v;
+        });
+        const title = block.querySelector(".rule-title");
+        const steps = block.querySelector(".rule-steps");
+        const warn = block.querySelector(".rule-warn");
+        rule.result = rule.result || {};
+        if (title) rule.result.title = title.value;
+        if (steps) rule.result.steps = steps.value.split("\n").map((l) => l.trim()).filter((l) => l.length);
+        if (warn) rule.result.warning = warn.value.trim();
+      });
+    }
+
+    function renderDefault() {
+      const d = currentWorkflow.default_result || {};
+      document.getElementById("def-title").value = d.title || "";
+      document.getElementById("def-steps").value = (d.steps || []).join("\n");
+      document.getElementById("def-warn").value = d.warning || "";
+    }
+
+    function syncDefaultFromDom() {
+      if (!currentWorkflow) return;
+      currentWorkflow.default_result = {
+        title: document.getElementById("def-title").value.trim(),
+        steps: document.getElementById("def-steps").value.split("\n").map((l) => l.trim()).filter((l) => l.length),
+        warning: document.getElementById("def-warn").value.trim(),
+      };
+    }
+
+    function renderRaw() {
+      syncQuestionsFromDom();
+      syncRulesFromDom();
+      syncDefaultFromDom();
+      document.getElementById("raw-json").value = JSON.stringify(currentWorkflow, null, 2);
+    }
+
+    function renderAll() {
+      if (!currentWorkflow) return;
+      document.getElementById("wf-code").value = currentWorkflow.code || "";
+      document.getElementById("wf-name").value = currentWorkflow.name || "";
+      renderQuestions();
+      renderRules();
+      renderDefault();
+      renderRaw();
+    }
+
+    document.getElementById("q-add").addEventListener("click", () => {
+      syncQuestionsFromDom();
+      currentWorkflow.questions.push({
+        field: "alan_" + (currentWorkflow.questions.length + 1),
+        question: "Yeni soru?",
+        type: "single_choice",
+        options: ["evet", "hayir"],
+      });
+      renderAll();
+    });
+
+    document.getElementById("rule-add").addEventListener("click", () => {
+      syncQuestionsFromDom();
+      syncRulesFromDom();
+      const fields = fieldNames();
+      const ifObj = {};
+      fields.forEach((f) => {
+        const q = currentWorkflow.questions.find((x) => x.field === f);
+        ifObj[f] = (q && q.options && q.options[0]) || "";
+      });
+      currentWorkflow.rules.push({
+        if: ifObj,
+        result: { title: "Yeni sonuç", steps: ["Adım 1"], warning: "" },
+      });
+      renderAll();
+    });
+
+    document.getElementById("wf-name").addEventListener("input", () => {
+      currentWorkflow.name = document.getElementById("wf-name").value;
+    });
+    document.getElementById("def-title").addEventListener("input", () => syncDefaultFromDom());
+    document.getElementById("def-steps").addEventListener("input", () => syncDefaultFromDom());
+    document.getElementById("def-warn").addEventListener("input", () => syncDefaultFromDom());
+
+    document.getElementById("raw-apply").addEventListener("click", () => {
+      try {
+        currentWorkflow = JSON.parse(document.getElementById("raw-json").value);
+        renderAll();
+        flash("JSON uygulandı.", true);
+      } catch (e) {
+        flash("JSON hatalı: " + e.message, false);
+      }
+    });
+
+    document.getElementById("raw-dl").addEventListener("click", () => {
+      syncQuestionsFromDom();
+      syncRulesFromDom();
+      syncDefaultFromDom();
+      const blob = new Blob([JSON.stringify(currentWorkflow, null, 2)], { type: "application/json;charset=utf-8" });
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = (currentWorkflow.code || "workflow") + ".json";
+      a.click();
+    });
+
+    async function refreshWorkflowList() {
+      const res = await fetch(API + "/api/workflows");
+      const data = await res.json();
+      const sel = document.getElementById("wf-select");
+      const cloneSel = document.getElementById("new-clone");
+      sel.innerHTML = "";
+      const ph = document.createElement("option");
+      ph.value = "";
+      ph.textContent = "— Akış seçin —";
+      sel.appendChild(ph);
+      cloneSel.innerHTML = '<option value="">— Boş şablon —</option>';
+      (data.workflows || []).forEach((w) => {
+        const o = document.createElement("option");
+        o.value = w.code;
+        o.textContent = w.name + " (" + w.code + ")";
+        sel.appendChild(o);
+        const o2 = document.createElement("option");
+        o2.value = w.code;
+        o2.textContent = w.code;
+        cloneSel.appendChild(o2);
+      });
+    }
+
+    document.getElementById("wf-load").addEventListener("click", async () => {
+      const code = document.getElementById("wf-select").value;
+      if (!code) {
+        flash("Önce listeden bir akış seçin.", false);
+        return;
+      }
+      const res = await fetch(API + "/api/workflow/" + encodeURIComponent(code));
+      if (!res.ok) {
+        flash(await res.text(), false);
+        return;
+      }
+      currentWorkflow = await res.json();
+      renderAll();
+      flash("Yüklendi: " + code, true);
+    });
+
+    document.getElementById("wf-save").addEventListener("click", async () => {
+      if (!currentWorkflow) return;
+      syncQuestionsFromDom();
+      syncRulesFromDom();
+      syncDefaultFromDom();
+      const code = currentWorkflow.code;
+      const res = await fetch(API + "/api/workflow/" + encodeURIComponent(code), {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(currentWorkflow),
+      });
+      if (!res.ok) {
+        const t = await res.json().catch(() => ({}));
+        flash(t.detail || res.statusText, false);
+        return;
+      }
+      flash("Kaydedildi.", true);
+      refreshWorkflowList();
+    });
+
+    document.getElementById("wf-new").addEventListener("click", () => {
+      document.getElementById("dlg-new").showModal();
+    });
+    document.getElementById("new-cancel").addEventListener("click", () => document.getElementById("dlg-new").close());
+    document.getElementById("new-ok").addEventListener("click", async () => {
+      const code = document.getElementById("new-code").value.trim().toLowerCase().replace(/-/g, "_");
+      const name = document.getElementById("new-name").value.trim() || "Yeni süreç";
+      const clone = document.getElementById("new-clone").value;
+      const res = await fetch(API + "/api/workflow", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code, name, clone_from: clone || null }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        flash(data.detail || "Oluşturulamadı", false);
+        return;
+      }
+      document.getElementById("dlg-new").close();
+      await refreshWorkflowList();
+      document.getElementById("wf-select").value = data.code;
+      document.getElementById("wf-load").click();
+      flash("Yeni akış ve intent iskeleti oluşturuldu (code + label). Intent kaydı sekmesinde anahtar kelimeleri tamamlayın.", true);
+    });
+
+    document.getElementById("wf-del").addEventListener("click", async () => {
+      const code = document.getElementById("wf-select").value;
+      if (!code || !confirm("Bu akış dosyası ve registry kaydı silinsin mi?")) return;
+      const res = await fetch(API + "/api/workflow/" + encodeURIComponent(code), { method: "DELETE" });
+      if (!res.ok) {
+        flash(await res.text(), false);
+        return;
+      }
+      currentWorkflow = null;
+      document.getElementById("questions-wrap").innerHTML = "";
+      document.getElementById("rules-wrap").innerHTML = "";
+      flash("Silindi.", true);
+      refreshWorkflowList();
+    });
+
+    /* Registry */
+    let registryData = { version: 1, workflows: [] };
+
+    function renderRegistry() {
+      const tb = document.getElementById("reg-body");
+      tb.innerHTML = "";
+      (registryData.workflows || []).forEach((w, i) => {
+        const st = w.strict || {};
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td><input type="text" data-i="${i}" class="rg-code" /></td>
+          <td><input type="text" data-i="${i}" class="rg-label" /></td>
+          <td><input type="text" data-i="${i}" class="rg-desc" /></td>
+          <td><textarea data-i="${i}" class="rg-kw" rows="2"></textarea></td>
+          <td><input type="text" data-i="${i}" class="rg-st1" placeholder="irsaliye" /></td>
+          <td><input type="text" data-i="${i}" class="rg-st2" placeholder="ters, iptal" /></td>
+          <td><button type="button" class="ghost danger rg-rm" data-i="${i}">Sil</button></td>
+        `;
+        tr.querySelector(".rg-code").value = w.code || "";
+        tr.querySelector(".rg-label").value = w.label || "";
+        tr.querySelector(".rg-desc").value = w.description || "";
+        tr.querySelector(".rg-kw").value = (w.keywords || []).join(", ");
+        tr.querySelector(".rg-st1").value = (st.must_include_all || []).join(", ");
+        tr.querySelector(".rg-st2").value = (st.include_one_of || []).join(", ");
+        tb.appendChild(tr);
+      });
+      tb.querySelectorAll(".rg-rm").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          const i = +btn.getAttribute("data-i");
+          registryData.workflows.splice(i, 1);
+          renderRegistry();
+        });
+      });
+    }
+
+    function syncRegistryFromDom() {
+      const rows = document.querySelectorAll("#reg-body tr");
+      const out = [];
+      rows.forEach((tr) => {
+        const code = tr.querySelector(".rg-code")?.value.trim();
+        if (!code) return;
+        const kw = parseOpts(tr.querySelector(".rg-kw")?.value || "");
+        const s1 = parseOpts(tr.querySelector(".rg-st1")?.value || "");
+        const s2 = parseOpts(tr.querySelector(".rg-st2")?.value || "");
+        const row = {
+          code,
+          label: tr.querySelector(".rg-label")?.value.trim() || code,
+          description: tr.querySelector(".rg-desc")?.value.trim() || "",
+          keywords: kw,
+        };
+        if (s1.length || s2.length) {
+          row.strict = {};
+          if (s1.length) row.strict.must_include_all = s1;
+          if (s2.length) row.strict.include_one_of = s2;
+        }
+        out.push(row);
+      });
+      registryData.workflows = out;
+    }
+
+    document.getElementById("reg-add").addEventListener("click", () => {
+      syncRegistryFromDom();
+      registryData.workflows.unshift({
+        code: "yeni_akis",
+        label: "Yeni akış",
+        description: "",
+        keywords: ["anahtar"],
+      });
+      renderRegistry();
+    });
+
+    document.getElementById("reg-save").addEventListener("click", async () => {
+      syncRegistryFromDom();
+      const res = await fetch(API + "/api/registry", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(registryData),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        flash(data.detail || "Kaydedilemedi", false);
+        return;
+      }
+      flash("Intent registry kaydedildi.", true);
+    });
+
+    async function loadRegistry() {
+      const res = await fetch(API + "/api/registry");
+      registryData = await res.json();
+      renderRegistry();
+    }
+
+    document.getElementById("tab-wf").addEventListener("click", () => {
+      document.getElementById("tab-wf").classList.add("active");
+      document.getElementById("tab-reg").classList.remove("active");
+      document.getElementById("view-wf").classList.remove("hidden");
+      document.getElementById("view-registry").classList.add("hidden");
+    });
+    document.getElementById("tab-reg").addEventListener("click", () => {
+      document.getElementById("tab-reg").classList.add("active");
+      document.getElementById("tab-wf").classList.remove("active");
+      document.getElementById("view-registry").classList.remove("hidden");
+      document.getElementById("view-wf").classList.add("hidden");
+      loadRegistry();
+    });
+
+    refreshWorkflowList();
+  </script>
+</body>
+</html>

@@ -1,0 +1,15 @@
+# Danışman AI — tek seferde kurulum:  pip install -r requirements.txt
+#
+# Web sunucusu & API
+fastapi>=0.109
+uvicorn[standard]>=0.27
+
+# PostgreSQL (SQLAlchemy ORM + sürücü)
+sqlalchemy>=2.0
+psycopg2-binary>=2.9
+
+# .env ile DATABASE_URL vb.
+python-dotenv>=1.0
+
+# FastAPI / Pydantic modelleri (uvicorn ile uyumlu sürüm)
+pydantic>=2.0
