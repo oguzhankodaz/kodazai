@@ -1,13 +1,17 @@
+import os
 import re
+from urllib.parse import quote
 from typing import Any
 
-from fastapi import Body, FastAPI, HTTPException
-from fastapi.responses import FileResponse
+from fastapi import Body, FastAPI, HTTPException, Request
+from fastapi.responses import FileResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
+from starlette.middleware.sessions import SessionMiddleware
 
 from database import init_db
 from models.conversation_store import clear_conversation, get_conversation, save_conversation
+from services.auth import ROLE_ADMIN, authenticate_user, get_active_user
 from services.intent import classify_intent, parse_workflow_pick
 from services.question_log import (
     get_journey_report,
@@ -31,6 +35,11 @@ from services.workflow_store import (
 from services.workflow_validate import validate_registry, validate_workflow
 
 app = FastAPI(title="Danışman AI")
+app.add_middleware(
+    SessionMiddleware,
+    secret_key=os.getenv("SESSION_SECRET", "dev-session-secret-change-me"),
+    same_site="lax",
+)
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
 
@@ -49,6 +58,11 @@ class Message(BaseModel):
 class ResultFeedback(BaseModel):
     conversation_id: str
     solved: bool
+
+
+class LoginBody(BaseModel):
+    username: str
+    password: str
 
 
 class NewWorkflowBody(BaseModel):
@@ -96,27 +110,117 @@ def _ensure_registry_entry(code: str, label: str) -> None:
     save_registry(reg)
 
 
+def _current_user(request: Request) -> dict[str, Any] | None:
+    username = str(request.session.get("username") or "").strip()
+    if not username:
+        return None
+    user = get_active_user(username)
+    if not user:
+        request.session.clear()
+        return None
+    return user
+
+
+def _require_user(request: Request) -> dict[str, Any]:
+    user = _current_user(request)
+    if not user:
+        raise HTTPException(status_code=401, detail="Giriş gerekli.")
+    return user
+
+
+def _require_admin(request: Request) -> dict[str, Any]:
+    user = _require_user(request)
+    if user.get("role") != ROLE_ADMIN:
+        raise HTTPException(status_code=403, detail="Bu alan sadece admin.")
+    return user
+
+
+def _login_redirect(next_path: str) -> RedirectResponse:
+    safe_next = next_path if next_path.startswith("/") else "/"
+    return RedirectResponse(url=f"/login?next={quote(safe_next)}", status_code=303)
+
+
+def _redirect_by_role(user: dict[str, Any]) -> RedirectResponse:
+    if user.get("role") == ROLE_ADMIN:
+        return RedirectResponse(url="/admin", status_code=303)
+    return RedirectResponse(url="/", status_code=303)
+
+
+@app.get("/login")
+def login_page(request: Request, next: str = "/"):
+    user = _current_user(request)
+    if user:
+        if next.startswith("/") and (user.get("role") == ROLE_ADMIN or next == "/"):
+            return RedirectResponse(url=next, status_code=303)
+        return _redirect_by_role(user)
+    return FileResponse("static/login.html", media_type="text/html; charset=utf-8")
+
+
+@app.post("/api/login")
+def api_login(data: LoginBody, request: Request):
+    user = authenticate_user(data.username.strip(), data.password)
+    if not user:
+        raise HTTPException(status_code=401, detail="Kullanıcı adı veya şifre hatalı.")
+    request.session.clear()
+    request.session["username"] = user["username"]
+    return {"ok": True, "user": user}
+
+
+@app.post("/api/logout")
+def api_logout(request: Request):
+    request.session.clear()
+    return {"ok": True}
+
+
+@app.get("/logout")
+def logout(request: Request):
+    request.session.clear()
+    return RedirectResponse(url="/login", status_code=303)
+
+
+@app.get("/api/me")
+def api_me(request: Request):
+    user = _current_user(request)
+    if not user:
+        raise HTTPException(status_code=401, detail="Giriş gerekli.")
+    return {"user": user}
+
+
 @app.get("/")
-def index():
+def index(request: Request):
+    if not _current_user(request):
+        return _login_redirect("/")
     return FileResponse("static/index.html", media_type="text/html; charset=utf-8")
 
 
 @app.get("/admin")
-def admin_page():
+def admin_page(request: Request):
+    user = _current_user(request)
+    if not user:
+        return _login_redirect("/admin")
+    if user.get("role") != ROLE_ADMIN:
+        return RedirectResponse(url="/", status_code=303)
     return FileResponse("static/admin.html", media_type="text/html; charset=utf-8")
 
 
 @app.get("/report")
-def report_page():
+def report_page(request: Request):
+    user = _current_user(request)
+    if not user:
+        return _login_redirect("/report")
+    if user.get("role") != ROLE_ADMIN:
+        return RedirectResponse(url="/", status_code=303)
     return FileResponse("static/report.html", media_type="text/html; charset=utf-8")
 
 
 @app.get("/api/report/journey")
 def api_journey_report(
+    request: Request,
     limit: int = 100,
     workflow_code: str | None = None,
     only_unsolved: bool = False,
 ):
+    _require_admin(request)
     items = get_journey_report(
         limit=limit,
         workflow_code=workflow_code,
@@ -126,7 +230,8 @@ def api_journey_report(
 
 
 @app.get("/api/workflows")
-def api_list_workflows():
+def api_list_workflows(request: Request):
+    _require_admin(request)
     files = list_workflow_files()
     out = []
     for code in files:
@@ -143,12 +248,14 @@ def api_list_workflows():
 
 
 @app.get("/api/registry")
-def api_get_registry():
+def api_get_registry(request: Request):
+    _require_admin(request)
     return registry_workflows_newest_first(load_registry())
 
 
 @app.put("/api/registry")
-def api_put_registry(data: dict = Body(...)):
+def api_put_registry(request: Request, data: dict = Body(...)):
+    _require_admin(request)
     ok, err = validate_registry(data)
     if not ok:
         raise HTTPException(status_code=400, detail=err)
@@ -160,7 +267,8 @@ def api_put_registry(data: dict = Body(...)):
 
 
 @app.get("/api/workflow/{code}")
-def api_get_workflow(code: str):
+def api_get_workflow(request: Request, code: str):
+    _require_admin(request)
     try:
         return load_workflow_file(code)
     except OSError:
@@ -168,7 +276,8 @@ def api_get_workflow(code: str):
 
 
 @app.put("/api/workflow/{code}")
-def api_put_workflow(code: str, data: dict = Body(...)):
+def api_put_workflow(request: Request, code: str, data: dict = Body(...)):
+    _require_admin(request)
     if data.get("code") and data["code"] != code:
         raise HTTPException(status_code=400, detail="Gövde içindeki 'code' URL ile aynı olmalı.")
     data["code"] = code
@@ -184,7 +293,8 @@ def api_put_workflow(code: str, data: dict = Body(...)):
 
 
 @app.post("/api/workflow")
-def api_create_workflow(body: NewWorkflowBody):
+def api_create_workflow(request: Request, body: NewWorkflowBody):
+    _require_admin(request)
     code = body.code.strip().lower().replace("-", "_")
     if not _CODE_RE.match(code):
         raise HTTPException(
@@ -216,7 +326,8 @@ def api_create_workflow(body: NewWorkflowBody):
 
 
 @app.delete("/api/workflow/{code}")
-def api_delete_workflow(code: str):
+def api_delete_workflow(request: Request, code: str):
+    _require_admin(request)
     if code not in list_workflow_files():
         raise HTTPException(status_code=404, detail="Yok.")
     delete_workflow_file(code)
@@ -227,7 +338,8 @@ def api_delete_workflow(code: str):
 
 
 @app.post("/message")
-def message(data: Message):
+def message(request: Request, data: Message):
+    _require_user(request)
     conv = get_conversation(data.conversation_id)
 
     # Önceki görüşmede tüm sorular cevaplanmışsa oturumu kapat;
@@ -320,7 +432,8 @@ def message(data: Message):
 
 
 @app.post("/api/result-feedback")
-def api_result_feedback(data: ResultFeedback):
+def api_result_feedback(request: Request, data: ResultFeedback):
+    _require_user(request)
     conv = get_conversation(data.conversation_id)
     workflow_code = conv.get("workflow") if isinstance(conv, dict) else None
     log_result_feedback(data.conversation_id, workflow_code, data.solved)

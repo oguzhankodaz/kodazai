@@ -356,9 +356,10 @@
     <header class="topbar">
       <h1>Kodaz AI</h1>
       <span class="topbar-meta" id="cid" title=""></span>
-      <div style="display:flex; gap:0.75rem; align-items:center;">
-        <a href="/report">Rapor</a>
-        <a href="/admin">Akışlar</a>
+      <div id="top-links" style="display:flex; gap:0.75rem; align-items:center;">
+        <a href="/report" id="lnk-report">Rapor</a>
+        <a href="/admin" id="lnk-admin">Akışlar</a>
+        <a href="/logout">Çıkış</a>
       </div>
     </header>
 
@@ -644,7 +645,25 @@
       log.appendChild(p);
     }
 
+    async function applyRoleUi() {
+      try {
+        const res = await fetch("/api/me");
+        if (!res.ok) return;
+        const data = await res.json();
+        const role = data?.user?.role;
+        if (role !== "admin") {
+          const r = document.getElementById("lnk-report");
+          const a = document.getElementById("lnk-admin");
+          if (r) r.remove();
+          if (a) a.remove();
+        }
+      } catch (e) {
+        // Rol bilgisi alınamazsa mevcut görünüm korunur.
+      }
+    }
+
     showCid();
+    applyRoleUi();
     injectEmptyHint();
   </script>
 </body>

@@ -105,6 +105,7 @@
     <div style="display:flex; gap:0.75rem; align-items:center;">
       <a href="/report">Rapor ekranı</a>
       <a href="/">← Sohbet ekranı</a>
+      <a href="/logout">Çıkış</a>
     </div>
   </header>
 
@@ -197,6 +198,7 @@
                 <th>code</th>
                 <th>label</th>
                 <th>description</th>
+                <th>kategori (opsiyonel)</th>
                 <th>keywords (virgülle)</th>
                 <th>strict: hepsi</th>
                 <th>strict: biri</th>
@@ -225,6 +227,11 @@
           <dt><code>description</code></dt>
           <dd>
             İsteğe bağlı açıklama. Konu listesinde başlığın altında küçük metin olarak gösterilir; akışın ne işe yaradığını bir cümleyle özetleyin.
+          </dd>
+          <dt><code>kategori</code> (opsiyonel)</dt>
+          <dd>
+            Sohbet veya intent seçiminde <strong>kullanılmaz</strong>; yalnızca sizin tanımladığınız gruplama etiketi (ör. <code>fatura</code>, <code>lojistik</code>).
+            İleride raporlama, eğitim verisi veya yapay zeka prompt’larında aynı tür akışları bir arada düşünmek için kullanılabilir.
           </dd>
           <dt><code>keywords</code> (virgülle)</dt>
           <dd>
@@ -622,6 +629,7 @@
           <td><input type="text" data-i="${i}" class="rg-code" /></td>
           <td><input type="text" data-i="${i}" class="rg-label" /></td>
           <td><input type="text" data-i="${i}" class="rg-desc" /></td>
+          <td><input type="text" data-i="${i}" class="rg-cat" placeholder="ör. fatura" /></td>
           <td><textarea data-i="${i}" class="rg-kw" rows="2"></textarea></td>
           <td><input type="text" data-i="${i}" class="rg-st1" placeholder="irsaliye" /></td>
           <td><input type="text" data-i="${i}" class="rg-st2" placeholder="ters, iptal" /></td>
@@ -630,6 +638,7 @@
         tr.querySelector(".rg-code").value = w.code || "";
         tr.querySelector(".rg-label").value = w.label || "";
         tr.querySelector(".rg-desc").value = w.description || "";
+        tr.querySelector(".rg-cat").value = w.category || "";
         tr.querySelector(".rg-kw").value = (w.keywords || []).join(", ");
         tr.querySelector(".rg-st1").value = (st.must_include_all || []).join(", ");
         tr.querySelector(".rg-st2").value = (st.include_one_of || []).join(", ");
@@ -659,6 +668,8 @@
           description: tr.querySelector(".rg-desc")?.value.trim() || "",
           keywords: kw,
         };
+        const cat = tr.querySelector(".rg-cat")?.value.trim() || "";
+        if (cat) row.category = cat;
         if (s1.length || s2.length) {
           row.strict = {};
           if (s1.length) row.strict.must_include_all = s1;

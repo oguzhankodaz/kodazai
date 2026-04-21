@@ -59,6 +59,8 @@ def _entry_to_dict(row: RegistryEntry) -> dict[str, Any]:
     }
     if row.strict:
         d["strict"] = row.strict
+    if row.category:
+        d["category"] = row.category
     return d
 
 
@@ -105,6 +107,11 @@ def save_registry(data: dict) -> None:
                 st = None
             label = str(w.get("label") or code)
             desc = str(w.get("description") or "")
+            cat_raw = w.get("category")
+            if cat_raw is None or str(cat_raw).strip() == "":
+                category = None
+            else:
+                category = str(cat_raw).strip()
 
             ent = session.get(RegistryEntry, code)
             if ent:
@@ -112,6 +119,7 @@ def save_registry(data: dict) -> None:
                 ent.description = desc
                 ent.keywords = kw
                 ent.strict = st
+                ent.category = category
             else:
                 session.add(
                     RegistryEntry(
@@ -120,6 +128,7 @@ def save_registry(data: dict) -> None:
                         description=desc,
                         keywords=kw,
                         strict=st,
+                        category=category,
                     )
                 )
         session.commit()

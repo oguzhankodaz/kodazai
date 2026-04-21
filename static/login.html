@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Giriş</title>
+  <style>
+    :root {
+      --bg: #0f1419;
+      --surface: #1a2332;
+      --border: #2d3a4f;
+      --text: #e8edf4;
+      --muted: #8b9cb3;
+      --accent: #3d8bfd;
+      --danger: #f87171;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      background: radial-gradient(1100px 500px at 10% -5%, rgba(61, 139, 253, 0.14), transparent 60%), var(--bg);
+      color: var(--text);
+      font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+      padding: 1rem;
+    }
+    .card {
+      width: 100%;
+      max-width: 380px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 1.1rem;
+    }
+    h1 {
+      margin: 0 0 0.4rem;
+      font-size: 1.1rem;
+    }
+    .hint {
+      margin: 0 0 0.9rem;
+      font-size: 0.86rem;
+      color: var(--muted);
+    }
+    label {
+      display: block;
+      margin: 0.35rem 0 0.22rem;
+      font-size: 0.8rem;
+      color: var(--muted);
+    }
+    input, button {
+      width: 100%;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      padding: 0.58rem 0.65rem;
+      background: #121b28;
+      color: var(--text);
+      font-family: inherit;
+      font-size: 0.92rem;
+    }
+    input:focus {
+      outline: none;
+      border-color: #4e647f;
+    }
+    button {
+      margin-top: 0.8rem;
+      background: var(--accent);
+      border: none;
+      color: #fff;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    button:hover { filter: brightness(1.06); }
+    button:disabled { opacity: 0.6; cursor: not-allowed; }
+    .error {
+      min-height: 1.1rem;
+      margin-top: 0.55rem;
+      font-size: 0.84rem;
+      color: var(--danger);
+    }
+  </style>
+</head>
+<body>
+  <main class="card">
+    <h1>Kodaz AI Giriş</h1>
+    <p class="hint">Devam etmek için kullanıcı adı ve şifrenizi girin.</p>
+    <form id="login-form">
+      <label for="username">Kullanıcı adı</label>
+      <input id="username" type="text" autocomplete="username" required />
+      <label for="password">Şifre</label>
+      <input id="password" type="password" autocomplete="current-password" required />
+      <button type="submit" id="btn-login">Giriş yap</button>
+      <div id="error" class="error"></div>
+    </form>
+  </main>
+
+  <script>
+    const form = document.getElementById("login-form");
+    const btn = document.getElementById("btn-login");
+    const err = document.getElementById("error");
+    const next = new URLSearchParams(window.location.search).get("next") || "/";
+
+    function safeNext(path) {
+      if (typeof path !== "string") return "/";
+      if (!path.startsWith("/") || path.startsWith("//")) return "/";
+      return path;
+    }
+
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      err.textContent = "";
+      btn.disabled = true;
+
+      const payload = {
+        username: document.getElementById("username").value.trim(),
+        password: document.getElementById("password").value,
+      };
+
+      try {
+        const res = await fetch("/api/login", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          err.textContent = data.detail || "Giriş başarısız.";
+          return;
+        }
+
+        const role = data?.user?.role;
+        const target = safeNext(next);
+        if (role === "admin") {
+          window.location.href = target;
+        } else {
+          window.location.href = "/";
+        }
+      } catch (ex) {
+        err.textContent = "Sunucuya bağlanılamadı.";
+      } finally {
+        btn.disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>

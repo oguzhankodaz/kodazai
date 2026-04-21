@@ -1,4 +1,4 @@
-🧱 1. Proje klasöründe venv oluştur:    python -m venv venv
-⚡ 2. venv’i aktif et:  venv\Scripts\activate
-📦 3. Gerekli paketleri kur:    pip install fastapi uvicorn pandas scikit-learn
-🚀 4. Şimdi uvicorn çalıştır:   uvicorn main:app --reload
+ 1. venv oluştur:    python -m venv venv
+ 2. venv’i aktif et:  venv\Scripts\activate
+ 3. kur:    pip install fastapi uvicorn pandas scikit-learn
+ 4. çalıştır:   uvicorn main:app --reload

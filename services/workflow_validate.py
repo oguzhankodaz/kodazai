@@ -77,4 +77,10 @@ def validate_registry(data: dict) -> tuple[bool, str]:
         kws = w.get("keywords")
         if not isinstance(kws, list) or len(kws) < 1:
             return False, f"{code}: en az bir 'keywords' girin."
+        cat = w.get("category")
+        if cat is not None and cat != "":
+            if not isinstance(cat, str):
+                return False, f"{code}: 'category' metin olmalı."
+            if len(cat) > 128:
+                return False, f"{code}: 'category' en fazla 128 karakter."
     return True, ""
