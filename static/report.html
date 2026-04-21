@@ -1,0 +1,427 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Talep Yolculuk Raporu</title>
+  <style>
+    :root {
+      --bg: #0f1419;
+      --surface: #1a2332;
+      --surface-2: #202b3d;
+      --border: #2d3a4f;
+      --text: #e8edf4;
+      --muted: #8b9cb3;
+      --accent: #3d8bfd;
+      --ok: #34d399;
+      --bad: #f87171;
+      --warn: #fbbf24;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+    }
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.75rem;
+      padding: 0.8rem 1rem;
+      border-bottom: 1px solid var(--border);
+      background: var(--surface);
+    }
+    .topbar h1 {
+      margin: 0;
+      font-size: 1.05rem;
+      font-weight: 600;
+    }
+    .top-links {
+      display: flex;
+      gap: 0.75rem;
+      flex-wrap: wrap;
+    }
+    .top-links a {
+      color: var(--muted);
+      text-decoration: none;
+      font-size: 0.86rem;
+    }
+    .top-links a:hover { color: var(--accent); }
+    .wrap {
+      padding: 1rem;
+      display: grid;
+      grid-template-columns: minmax(300px, 520px) minmax(0, 1fr);
+      gap: 0.85rem;
+      min-height: calc(100vh - 60px);
+    }
+    .panel {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 0.85rem;
+    }
+    .filters {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(120px, auto);
+      gap: 0.5rem;
+      margin-bottom: 0.7rem;
+      align-items: stretch;
+    }
+    .filters > * {
+      min-width: 0;
+    }
+    input, select, button {
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      color: var(--text);
+      border-radius: 8px;
+      padding: 0.5rem 0.6rem;
+      font-size: 0.9rem;
+      font-family: inherit;
+    }
+    button {
+      cursor: pointer;
+      background: var(--accent);
+      border: none;
+      color: #fff;
+      font-weight: 600;
+      white-space: nowrap;
+    }
+    button:hover { filter: brightness(1.06); }
+    .filter-help {
+      margin: 0 0 0.75rem;
+      font-size: 0.78rem;
+      color: var(--muted);
+    }
+    .list {
+      max-height: calc(100vh - 190px);
+      overflow: auto;
+      display: grid;
+      gap: 0.5rem;
+    }
+    .item {
+      border: 1px solid var(--border);
+      background: #141d2b;
+      border-radius: 8px;
+      padding: 0.6rem;
+      cursor: pointer;
+    }
+    .item:hover { border-color: #3f5069; }
+    .item.active { border-color: var(--accent); }
+    .item-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 0.6rem;
+      margin-bottom: 0.35rem;
+    }
+    .item-code {
+      font-size: 0.8rem;
+      color: var(--muted);
+      font-family: ui-monospace, monospace;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .badge {
+      font-size: 0.72rem;
+      border-radius: 999px;
+      padding: 0.13rem 0.48rem;
+      border: 1px solid transparent;
+      white-space: nowrap;
+    }
+    .badge.solved { color: var(--ok); border-color: rgba(52, 211, 153, 0.35); background: rgba(52, 211, 153, 0.1); }
+    .badge.not_solved { color: var(--bad); border-color: rgba(248, 113, 113, 0.35); background: rgba(248, 113, 113, 0.1); }
+    .badge.unknown { color: var(--warn); border-color: rgba(251, 191, 36, 0.35); background: rgba(251, 191, 36, 0.1); }
+    .item-text {
+      font-size: 0.86rem;
+      color: #d4ddeb;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+    .item-meta {
+      font-size: 0.74rem;
+      color: var(--muted);
+      margin-top: 0.35rem;
+    }
+    .detail-head {
+      margin-bottom: 0.6rem;
+      padding-bottom: 0.6rem;
+      border-bottom: 1px solid var(--border);
+    }
+    .detail-head h2 {
+      margin: 0 0 0.4rem;
+      font-size: 1rem;
+    }
+    .detail-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      font-size: 0.8rem;
+      color: var(--muted);
+    }
+    .journey {
+      display: grid;
+      gap: 0.45rem;
+      max-height: calc(100vh - 220px);
+      overflow: auto;
+    }
+    .step {
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 0.58rem 0.62rem;
+      background: #141d2b;
+    }
+    .step-kind {
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: var(--muted);
+      margin-bottom: 0.28rem;
+    }
+    .step-text {
+      font-size: 0.88rem;
+      color: #dbe4f3;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+    .step-meta {
+      margin-top: 0.35rem;
+      font-size: 0.75rem;
+      color: var(--muted);
+    }
+    .empty {
+      color: var(--muted);
+      font-size: 0.9rem;
+      padding: 0.5rem 0.2rem;
+    }
+    @media (max-width: 980px) {
+      .wrap {
+        grid-template-columns: 1fr;
+      }
+      .list, .journey {
+        max-height: 42vh;
+      }
+    }
+    @media (max-width: 760px) {
+      .filters {
+        grid-template-columns: 1fr;
+      }
+      #refresh {
+        width: 100%;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <h1>Talep Yolculuk Raporu</h1>
+    <nav class="top-links">
+      <a href="/">Sohbet</a>
+      <a href="/admin">Akış Yönetimi</a>
+    </nav>
+  </header>
+
+  <div class="wrap">
+    <section class="panel">
+      <div class="filters">
+        <input id="workflow" type="text" list="workflow-suggestions" placeholder="workflow_code yazın (parçalı arama)" />
+        <select id="status">
+          <option value="all">Tümü</option>
+          <option value="not_solved">Sadece çözülmeyen</option>
+          <option value="solved">Sadece çözülen</option>
+          <option value="unknown">Geri bildirim yok</option>
+        </select>
+        <button type="button" id="refresh">Yenile</button>
+      </div>
+      <datalist id="workflow-suggestions"></datalist>
+      <p class="filter-help">Not: Kodun sadece bir kısmını yazmanız yeterli (ör. <code>fatura</code>).</p>
+      <div id="list" class="list"></div>
+    </section>
+
+    <section class="panel">
+      <div id="detail-empty" class="empty">Sol taraftan bir talep seçin.</div>
+      <div id="detail" hidden>
+        <div class="detail-head">
+          <h2 id="d-title">Talep Detayı</h2>
+          <div class="detail-meta">
+            <span id="d-conv"></span>
+            <span id="d-workflow"></span>
+            <span id="d-status"></span>
+            <span id="d-range"></span>
+          </div>
+        </div>
+        <div id="journey" class="journey"></div>
+      </div>
+    </section>
+  </div>
+
+  <script>
+    const API = "";
+    let items = [];
+    let selectedIndex = -1;
+
+    function esc(s) {
+      return String(s || "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;");
+    }
+
+    function fmtStatus(status) {
+      if (status === "solved") return "Çözüldü";
+      if (status === "not_solved") return "Çözülmedi";
+      return "Geri bildirim yok";
+    }
+
+    function fmtDate(v) {
+      if (!v) return "-";
+      const d = new Date(v);
+      if (Number.isNaN(d.getTime())) return v;
+      return d.toLocaleString("tr-TR");
+    }
+
+    function stepTitle(kind) {
+      if (kind === "user_opening") return "Kullanıcı açılış talebi";
+      if (kind === "bot_question") return "Bot sorusu";
+      if (kind === "user_answer") return "Kullanıcı cevabı";
+      if (kind === "result_feedback") return "Sonuç geri bildirimi";
+      return kind || "olay";
+    }
+
+    function renderList() {
+      const list = document.getElementById("list");
+      list.innerHTML = "";
+      if (!items.length) {
+        list.innerHTML = '<div class="empty">Kriterlere uygun kayıt bulunamadı.</div>';
+        renderDetail(-1);
+        return;
+      }
+
+      items.forEach((it, idx) => {
+        const div = document.createElement("div");
+        div.className = "item" + (idx === selectedIndex ? " active" : "");
+        const opening = it.opening_text || "(Açılış metni yok)";
+        div.innerHTML = `
+          <div class="item-top">
+            <div class="item-code">${esc(it.workflow_code || "-")} · ${esc(it.conversation_id)}</div>
+            <span class="badge ${esc(it.status)}">${esc(fmtStatus(it.status))}</span>
+          </div>
+          <div class="item-text">${esc(opening)}</div>
+          <div class="item-meta">${esc(fmtDate(it.started_at))} · ${esc(String(it.event_count || 0))} olay</div>
+        `;
+        div.addEventListener("click", () => {
+          selectedIndex = idx;
+          renderList();
+          renderDetail(idx);
+        });
+        list.appendChild(div);
+      });
+
+      if (selectedIndex < 0) {
+        selectedIndex = 0;
+      }
+      renderDetail(selectedIndex);
+    }
+
+    function renderDetail(idx) {
+      const detail = document.getElementById("detail");
+      const empty = document.getElementById("detail-empty");
+      const journey = document.getElementById("journey");
+
+      if (idx < 0 || !items[idx]) {
+        detail.hidden = true;
+        empty.hidden = false;
+        return;
+      }
+
+      const it = items[idx];
+      empty.hidden = true;
+      detail.hidden = false;
+
+      document.getElementById("d-title").textContent = it.opening_text || "Talep Detayı";
+      document.getElementById("d-conv").textContent = "Konuşma: " + (it.conversation_id || "-");
+      document.getElementById("d-workflow").textContent = "Akış: " + (it.workflow_code || "-");
+      document.getElementById("d-status").textContent = "Durum: " + fmtStatus(it.status);
+      document.getElementById("d-range").textContent =
+        "Aralık: " + fmtDate(it.started_at) + " - " + fmtDate(it.ended_at);
+
+      journey.innerHTML = "";
+      const steps = it.journey || [];
+      if (!steps.length) {
+        journey.innerHTML = '<div class="empty">Bu talep için adım kaydı yok.</div>';
+        return;
+      }
+
+      steps.forEach((st) => {
+        const card = document.createElement("div");
+        card.className = "step";
+        const fieldText = st.field_name ? " · alan: " + st.field_name : "";
+        card.innerHTML = `
+          <div class="step-kind">${esc(stepTitle(st.kind))}${esc(fieldText)}</div>
+          <div class="step-text">${esc(st.content || "")}</div>
+          <div class="step-meta">${esc(fmtDate(st.created_at))}</div>
+        `;
+        journey.appendChild(card);
+      });
+    }
+
+    async function loadReport() {
+      const workflow = document.getElementById("workflow").value.trim();
+      const status = document.getElementById("status").value;
+      const params = new URLSearchParams();
+      params.set("limit", "150");
+      if (workflow) params.set("workflow_code", workflow);
+      if (status === "not_solved") {
+        params.set("only_unsolved", "true");
+      }
+
+      const res = await fetch(API + "/api/report/journey?" + params.toString());
+      const data = await res.json();
+      let nextItems = Array.isArray(data.items) ? data.items : [];
+
+      if (status === "solved") {
+        nextItems = nextItems.filter((x) => x.status === "solved");
+      } else if (status === "unknown") {
+        nextItems = nextItems.filter((x) => x.status === "unknown");
+      }
+
+      items = nextItems;
+      selectedIndex = -1;
+      renderList();
+    }
+
+    async function loadWorkflowSuggestions() {
+      try {
+        const res = await fetch(API + "/api/workflows");
+        const data = await res.json();
+        const dl = document.getElementById("workflow-suggestions");
+        dl.innerHTML = "";
+        const workflows = Array.isArray(data.workflows) ? data.workflows : [];
+        workflows.forEach((w) => {
+          if (!w || !w.code) return;
+          const opt = document.createElement("option");
+          opt.value = w.code;
+          dl.appendChild(opt);
+        });
+      } catch (e) {
+        // Öneri listesi yüklenmese de rapor ekranı çalışmaya devam etsin.
+      }
+    }
+
+    document.getElementById("refresh").addEventListener("click", loadReport);
+    document.getElementById("status").addEventListener("change", loadReport);
+    document.getElementById("workflow").addEventListener("keydown", (e) => {
+      if (e.key === "Enter") loadReport();
+    });
+
+    loadWorkflowSuggestions();
+    loadReport();
+  </script>
+</body>
+</html>

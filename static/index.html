@@ -146,6 +146,42 @@
       color: var(--ok);
       margin: 0.35rem 0 0.25rem;
     }
+    .result-feedback {
+      margin-top: 0.85rem;
+      padding-top: 0.75rem;
+      border-top: 1px solid var(--border);
+    }
+    .result-feedback p {
+      margin: 0 0 0.5rem;
+      font-size: 0.86rem;
+      color: var(--muted);
+    }
+    .result-feedback .feedback-buttons {
+      display: flex;
+      gap: 0.45rem;
+      flex-wrap: wrap;
+    }
+    .result-feedback button {
+      font-size: 0.84rem;
+      padding: 0.4rem 0.65rem;
+      border-radius: 0.6rem;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--text);
+      cursor: pointer;
+    }
+    .result-feedback button:hover:not(:disabled) {
+      border-color: var(--accent);
+    }
+    .result-feedback button:disabled {
+      opacity: 0.65;
+      cursor: not-allowed;
+    }
+    .result-feedback .feedback-status {
+      margin-top: 0.45rem;
+      font-size: 0.8rem;
+      color: var(--muted);
+    }
 
     .composer-wrap {
       flex-shrink: 0;
@@ -320,7 +356,10 @@
     <header class="topbar">
       <h1>Kodaz AI</h1>
       <span class="topbar-meta" id="cid" title=""></span>
-      <a href="/admin">Akışlar</a>
+      <div style="display:flex; gap:0.75rem; align-items:center;">
+        <a href="/report">Rapor</a>
+        <a href="/admin">Akışlar</a>
+      </div>
     </header>
 
     <div class="chat-scroll" id="chat-scroll">
@@ -405,6 +444,39 @@
     function setBusy(b) {
       document.getElementById("send").disabled = b;
       document.getElementById("msg").disabled = b;
+    }
+
+    async function submitResultFeedback(container, solved) {
+      const buttons = Array.from(container.querySelectorAll("button[data-solved]"));
+      const status = container.querySelector(".feedback-status");
+      buttons.forEach((btn) => (btn.disabled = true));
+      if (status) status.textContent = "Geri bildiriminiz kaydediliyor...";
+      try {
+        const res = await fetch(API + "/api/result-feedback", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            conversation_id: conversationId(),
+            solved: !!solved
+          }),
+        });
+        if (!res.ok) throw new Error("feedback_failed");
+        if (status) status.textContent = "Teşekkürler, geri bildiriminiz kaydedildi.";
+      } catch (e) {
+        buttons.forEach((btn) => (btn.disabled = false));
+        if (status) status.textContent = "Geri bildirim kaydedilemedi, tekrar deneyin.";
+      }
+    }
+
+    function wireResultFeedback(row) {
+      const container = row.querySelector(".result-feedback");
+      if (!container) return;
+      container.querySelectorAll("button[data-solved]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          const solved = btn.getAttribute("data-solved") === "true";
+          submitResultFeedback(container, solved);
+        });
+      });
     }
 
     /** Sonuç gösterildikten sonra metin kutusu kapanır; yeni görüşme öne çıkar. */
@@ -513,11 +585,20 @@
           const warn = r.warning
             ? `<div class="warn">${escapeHtml(r.warning)}</div>`
             : "";
-          appendMessage(
-            `<strong>Sonuç</strong><span class="result-title">${escapeHtml(r.title || "")}</span><ul>${steps}</ul>${warn}`,
+          const row = appendMessage(
+            `<strong>Sonuç</strong><span class="result-title">${escapeHtml(r.title || "")}</span><ul>${steps}</ul>${warn}
+             <div class="result-feedback">
+               <p>Sorununuz çözüldü mü?</p>
+               <div class="feedback-buttons">
+                 <button type="button" data-solved="true">Evet, çözüldü</button>
+                 <button type="button" data-solved="false">Hayır, çözülmedi</button>
+               </div>
+               <div class="feedback-status"></div>
+             </div>`,
             "assistant",
             "result"
           );
+          wireResultFeedback(row);
           setComposerResultMode(true);
           return;
         }

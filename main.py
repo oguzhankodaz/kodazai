@@ -9,6 +9,13 @@ from pydantic import BaseModel, Field
 from database import init_db
 from models.conversation_store import clear_conversation, get_conversation, save_conversation
 from services.intent import classify_intent, parse_workflow_pick
+from services.question_log import (
+    get_journey_report,
+    log_bot_question,
+    log_result_feedback,
+    log_user_answer,
+    log_user_opening,
+)
 from services.topic_search import search_matching_topics
 from services.normalizer import normalize_answer
 from services.workflow_engine import get_next_question, load_workflow, resolve
@@ -21,7 +28,6 @@ from services.workflow_store import (
     save_registry,
     save_workflow_file,
 )
-from services.question_log import log_bot_question, log_user_answer, log_user_opening
 from services.workflow_validate import validate_registry, validate_workflow
 
 app = FastAPI(title="Danışman AI")
@@ -38,6 +44,11 @@ _CODE_RE = re.compile(r"^[a-z][a-z0-9_]{0,62}$")
 class Message(BaseModel):
     conversation_id: str
     message: str
+
+
+class ResultFeedback(BaseModel):
+    conversation_id: str
+    solved: bool
 
 
 class NewWorkflowBody(BaseModel):
@@ -93,6 +104,25 @@ def index():
 @app.get("/admin")
 def admin_page():
     return FileResponse("static/admin.html", media_type="text/html; charset=utf-8")
+
+
+@app.get("/report")
+def report_page():
+    return FileResponse("static/report.html", media_type="text/html; charset=utf-8")
+
+
+@app.get("/api/report/journey")
+def api_journey_report(
+    limit: int = 100,
+    workflow_code: str | None = None,
+    only_unsolved: bool = False,
+):
+    items = get_journey_report(
+        limit=limit,
+        workflow_code=workflow_code,
+        only_unsolved=only_unsolved,
+    )
+    return {"items": items}
 
 
 @app.get("/api/workflows")
@@ -287,3 +317,11 @@ def message(data: Message):
         "type": "result",
         "result": result,
     }
+
+
+@app.post("/api/result-feedback")
+def api_result_feedback(data: ResultFeedback):
+    conv = get_conversation(data.conversation_id)
+    workflow_code = conv.get("workflow") if isinstance(conv, dict) else None
+    log_result_feedback(data.conversation_id, workflow_code, data.solved)
+    return {"ok": True}
