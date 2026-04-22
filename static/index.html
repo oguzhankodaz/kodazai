@@ -390,13 +390,10 @@
   <script>
     const API = "";
 
+    let _currentCid = "web-" + Math.random().toString(36).slice(2, 12);
+
     function conversationId() {
-      let id = sessionStorage.getItem("danisman_cid");
-      if (!id) {
-        id = "web-" + Math.random().toString(36).slice(2, 12);
-        sessionStorage.setItem("danisman_cid", id);
-      }
-      return id;
+      return _currentCid;
     }
 
     function showCid() {
@@ -490,7 +487,7 @@
     }
 
     function startNewChat() {
-      sessionStorage.removeItem("danisman_cid");
+      _currentCid = "web-" + Math.random().toString(36).slice(2, 12);
       document.getElementById("log").innerHTML = "";
       showCid();
       injectEmptyHint();
