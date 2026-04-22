@@ -32,6 +32,7 @@ from services.workflow_store import (
     save_registry,
     save_workflow_file,
 )
+from services.ai_analyze import analyze_process_description, coerce_publish_bundle
 from services.workflow_validate import validate_registry, validate_workflow
 
 app = FastAPI(title="Danışman AI")
@@ -69,6 +70,15 @@ class NewWorkflowBody(BaseModel):
     code: str = Field(..., description="Dosya adı: ornek_akış")
     name: str = "Yeni süreç"
     clone_from: str | None = None
+
+
+class AnalyzeProcessBody(BaseModel):
+    description: str = Field(..., min_length=15, max_length=60000)
+
+
+class PublishAIWorkflowBody(BaseModel):
+    workflow: dict[str, Any]
+    intent: dict[str, Any]
 
 
 def _empty_workflow(code: str, name: str) -> dict[str, Any]:
@@ -203,6 +213,16 @@ def admin_page(request: Request):
     return FileResponse("static/admin.html", media_type="text/html; charset=utf-8")
 
 
+@app.get("/admin/ai-process")
+def admin_ai_process_page(request: Request):
+    user = _current_user(request)
+    if not user:
+        return _login_redirect("/admin/ai-process")
+    if user.get("role") != ROLE_ADMIN:
+        return RedirectResponse(url="/", status_code=303)
+    return FileResponse("static/ai-process.html", media_type="text/html; charset=utf-8")
+
+
 @app.get("/report")
 def report_page(request: Request):
     user = _current_user(request)
@@ -245,6 +265,52 @@ def api_list_workflows(request: Request):
     for item in out:
         item["in_registry"] = item["code"] in reg_codes
     return {"workflows": out}
+
+
+@app.post("/api/ai/analyze-process")
+def api_ai_analyze_process(request: Request, body: AnalyzeProcessBody):
+    _require_admin(request)
+    try:
+        return analyze_process_description(body.description)
+    except RuntimeError as e:
+        detail = str(e)
+        if "OPENAI_API_KEY" in detail:
+            raise HTTPException(status_code=503, detail=detail) from e
+        raise HTTPException(status_code=502, detail=detail) from e
+    except Exception as e:
+        raise HTTPException(
+            status_code=502,
+            detail=str(e) or "OpenAI isteği başarısız.",
+        ) from e
+
+
+@app.post("/api/ai/publish-workflow")
+def api_ai_publish_workflow(request: Request, body: PublishAIWorkflowBody):
+    _require_admin(request)
+    wf, intent_row, err = coerce_publish_bundle(body.workflow, body.intent)
+    if err:
+        raise HTTPException(status_code=400, detail=err)
+    code = wf["code"]
+    try:
+        save_workflow_file(code, wf)
+    except OSError as e:
+        raise HTTPException(status_code=500, detail=str(e)) from e
+    reg = load_registry()
+    wfs = list(reg.get("workflows") or [])
+    idx = next((i for i, w in enumerate(wfs) if w.get("code") == code), None)
+    if idx is not None:
+        wfs[idx] = {**wfs[idx], **intent_row}
+    else:
+        wfs.insert(0, intent_row)
+    reg["workflows"] = wfs
+    ok, verr = validate_registry(reg)
+    if not ok:
+        raise HTTPException(status_code=400, detail=verr)
+    try:
+        save_registry(reg)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    return {"ok": True, "code": code}
 
 
 @app.get("/api/registry")
@@ -344,11 +410,17 @@ def message(request: Request, data: Message):
 
     # Önceki görüşmede tüm sorular cevaplanmışsa oturumu kapat;
     # aksi halde yeni mesaj yanlışlıkla tekrar sonuç üretir (soru sormadan).
+    # Kayıtlı workflow silinmiş / DB boşsa FileNotFoundError: oturumu sıfırla.
     if conv:
-        _wf = load_workflow(conv["workflow"])
-        if get_next_question(_wf, conv["answers"]) is None:
+        try:
+            _wf = load_workflow(conv["workflow"])
+        except OSError:
             clear_conversation(data.conversation_id)
             conv = None
+        else:
+            if get_next_question(_wf, conv["answers"]) is None:
+                clear_conversation(data.conversation_id)
+                conv = None
 
     yeni_konusma = False
 

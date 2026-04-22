@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>AI ile süreç — Danışman AI</title>
+  <style>
+    :root {
+      --bg: #0c0f14;
+      --surface: #161d27;
+      --border: #2a3544;
+      --text: #e6edf3;
+      --muted: #8b9cb0;
+      --accent: #3d8bfd;
+      --danger: #f85149;
+      --ok: #3fb950;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: "Segoe UI", system-ui, sans-serif; background: var(--bg); color: var(--text); line-height: 1.45; }
+    a { color: var(--accent); }
+    .top {
+      display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between;
+      gap: 0.75rem; padding: 1rem 1.25rem; border-bottom: 1px solid var(--border); background: var(--surface);
+    }
+    .top h1 { margin: 0; font-size: 1.15rem; font-weight: 600; }
+    .wrap { max-width: 1100px; margin: 0 auto; padding: 1rem 1rem 3rem; }
+    .panel {
+      background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+      padding: 1rem 1.1rem; margin-bottom: 1rem;
+    }
+    .hint { font-size: 0.85rem; color: var(--muted); margin: 0 0 0.75rem; }
+    label { display: block; font-size: 0.78rem; color: var(--muted); margin-bottom: 0.25rem; text-transform: uppercase; letter-spacing: 0.03em; }
+    textarea, input[type="text"] {
+      width: 100%; padding: 0.5rem 0.6rem; border-radius: 8px; border: 1px solid var(--border);
+      background: var(--bg); color: var(--text); font-size: 0.95rem;
+    }
+    textarea { min-height: 140px; font-family: ui-monospace, monospace; font-size: 0.85rem; }
+    textarea.tall { min-height: 260px; }
+    button.primary { background: var(--accent); color: #fff; border: none; padding: 0.5rem 1rem; border-radius: 8px; cursor: pointer; font-weight: 500; }
+    button.primary:disabled { opacity: 0.45; cursor: not-allowed; }
+    button.ghost { background: transparent; border: 1px solid var(--border); color: var(--muted); padding: 0.45rem 0.75rem; border-radius: 8px; cursor: pointer; }
+    .row-actions { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 0.65rem; }
+    .flash { padding: 0.6rem 0.75rem; border-radius: 8px; margin-bottom: 0.75rem; font-size: 0.9rem; }
+    .flash.ok { background: rgba(63, 185, 80, 0.12); border: 1px solid #238636; color: #7ee787; }
+    .flash.err { background: rgba(248, 81, 73, 0.1); border: 1px solid var(--danger); color: #ffa198; }
+    .flash.warn { background: rgba(210, 153, 34, 0.12); border: 1px solid #9e6a03; color: #e3b341; }
+    .grid-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1rem;
+    }
+    @media (max-width: 900px) { .grid-2 { grid-template-columns: 1fr; } }
+    h2.panel-title { margin: 0 0 0.5rem; font-size: 1rem; font-weight: 600; }
+  </style>
+</head>
+<body>
+  <header class="top">
+    <h1>AI ile süreç oluşturma</h1>
+    <div style="display:flex; gap:0.75rem; align-items:center; flex-wrap:wrap;">
+      <a href="/admin">← Akış yönetimi</a>
+      <a href="/">Sohbet</a>
+      <a href="/logout">Çıkış</a>
+    </div>
+  </header>
+
+  <div class="wrap">
+    <div id="flash" style="display:none;"></div>
+
+    <div class="panel">
+      <p class="hint" style="margin-top:0;">
+        Süreci doğal dilde anlatın (roller, dallanmalar, sonuçlar). <strong>Süreci analiz et</strong> ile OpenAI,
+        uygulamanın beklediği <strong>akış JSON</strong> ve tek satırlık <strong>intent</strong> taslağını üretir.
+        Metni düzenleyip <strong>Akış + intent kaydet</strong> ile veritabanına yazar; ardından sohbette deneyebilirsiniz.
+        Ortam: <code>OPENAI_API_KEY</code>; isteğe bağlı <code>OPENAI_MODEL</code> (varsayılan <code>gpt-4o-mini</code>),
+        <code>OPENAI_BASE_URL</code> (varsayılan resmi API).
+      </p>
+      <label for="desc">Süreç açıklaması</label>
+      <textarea id="desc" placeholder="Örnek: Kullanıcı irsaliye ters kaydı yapmak istiyor. Önce irsaliye numarası var mı diye sorulsun…"></textarea>
+      <div class="row-actions">
+        <button type="button" class="primary" id="btn-analyze">Süreci analiz et</button>
+        <button type="button" class="ghost" id="btn-clear">Temizle</button>
+      </div>
+    </div>
+
+    <div class="grid-2">
+      <div class="panel">
+        <h2 class="panel-title">Ham akış JSON</h2>
+        <p class="hint" style="margin-top:0;">Kaydetmeden önce <code>code</code>, sorular ve kuralları kontrol edin.</p>
+        <textarea id="wf-json" class="tall" spellcheck="false"></textarea>
+      </div>
+      <div class="panel">
+        <h2 class="panel-title">Intent kaydı (tek satır)</h2>
+        <p class="hint" style="margin-top:0;"><code>code</code> akıştaki ile aynı olmalı; keywords ve strict alanlarını inceleyin.</p>
+        <textarea id="intent-json" class="tall" spellcheck="false"></textarea>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="row-actions">
+        <button type="button" class="primary" id="btn-publish">Akış + intent kaydet</button>
+        <button type="button" class="ghost" id="btn-admin">Akış yönetiminde aç</button>
+      </div>
+      <p class="hint" style="margin-bottom:0;">
+        Kayıt başarılı olursa akış <code>workflows</code> tablosuna, intent <code>registry_entries</code> ile eşlenir (mevcut kod varsa güncellenir).
+      </p>
+    </div>
+  </div>
+
+  <script>
+    const API = "";
+
+    function flash(msg, kind) {
+      const el = document.getElementById("flash");
+      el.style.display = "block";
+      el.className = "flash " + (kind === "ok" ? "ok" : kind === "warn" ? "warn" : "err");
+      el.textContent = msg;
+      clearTimeout(flash._t);
+      flash._t = setTimeout(() => { el.style.display = "none"; }, 8000);
+    }
+
+    function detailMessage(data, fallback) {
+      const d = data && data.detail;
+      if (typeof d === "string") return d;
+      if (Array.isArray(d)) return d.map((x) => x.msg || JSON.stringify(x)).join("; ");
+      return fallback || "İstek başarısız.";
+    }
+
+    document.getElementById("btn-clear").addEventListener("click", () => {
+      document.getElementById("desc").value = "";
+      document.getElementById("wf-json").value = "";
+      document.getElementById("intent-json").value = "";
+    });
+
+    document.getElementById("btn-analyze").addEventListener("click", async () => {
+      const description = document.getElementById("desc").value.trim();
+      if (description.length < 15) {
+        flash("Açıklama en az 15 karakter olsun.", "err");
+        return;
+      }
+      const btn = document.getElementById("btn-analyze");
+      btn.disabled = true;
+      try {
+        const res = await fetch(API + "/api/ai/analyze-process", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({ description }),
+        });
+        if (res.status === 401) {
+          window.location.href = "/login?next=" + encodeURIComponent("/admin/ai-process");
+          return;
+        }
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          flash(detailMessage(data, res.statusText), "err");
+          return;
+        }
+        document.getElementById("wf-json").value = JSON.stringify(data.workflow || {}, null, 2);
+        document.getElementById("intent-json").value = JSON.stringify(data.intent || {}, null, 2);
+        if (data.validation_ok) {
+          flash("Analiz tamam; JSON doğrulaması geçti. İsterseniz düzenleyip kaydedin.", "ok");
+        } else {
+          flash("Model yanıtı alındı fakat doğrulama uyarısı: " + (data.validation_error || "bilinmiyor"), "warn");
+        }
+      } catch (e) {
+        flash(String(e.message || e), "err");
+      } finally {
+        btn.disabled = false;
+      }
+    });
+
+    document.getElementById("btn-publish").addEventListener("click", async () => {
+      let workflow, intent;
+      try {
+        workflow = JSON.parse(document.getElementById("wf-json").value || "{}");
+        intent = JSON.parse(document.getElementById("intent-json").value || "{}");
+      } catch (e) {
+        flash("JSON ayrıştırılamadı: " + e.message, "err");
+        return;
+      }
+      const res = await fetch(API + "/api/ai/publish-workflow", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ workflow, intent }),
+      });
+      if (res.status === 401) {
+        window.location.href = "/login?next=" + encodeURIComponent("/admin/ai-process");
+        return;
+      }
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        flash(detailMessage(data, res.statusText), "err");
+        return;
+      }
+      flash("Kaydedildi: " + (data.code || "") + " — Sohbet veya akış yönetiminden deneyin.", "ok");
+    });
+
+    document.getElementById("btn-admin").addEventListener("click", () => {
+      window.location.href = "/admin";
+    });
+  </script>
+</body>
+</html>
